@@ -20,9 +20,9 @@ mkdir -p /etc/cloudflared \
     && rm -f /etc/cloudflared/config.yml
 
 # clean up
-apt-get -y autoremove \
-    && apt-get -y autoclean \
-    && apt-get -y clean \
+apt -y autoremove \
+    && apt -y autoclean \
+    && apt -y clean \
     && rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
 
 # Creating pihole-dot-doh service

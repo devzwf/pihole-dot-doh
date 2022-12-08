@@ -12,7 +12,7 @@ RUN apt update && \
 ADD scripts /temp
 
 RUN /bin/bash /temp/install.sh \
-    && rm -rf /temp
+    && rm -rf /temp/install.sh
 
 VOLUME ["/config"]
 
