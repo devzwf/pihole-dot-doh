@@ -40,7 +40,7 @@ jobs:
         uses: pozetroninc/github-action-get-latest-release@v0.6.0
         id: latest-tag
         with:
-           username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: pi-hole/docker-pi-hole
           
