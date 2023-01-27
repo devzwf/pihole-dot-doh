@@ -54,6 +54,7 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
+          provenance: false
           tags: |
             devzwf/pihole-dot-doh:latest
             devzwf/pihole-dot-doh:${{ steps.latest-tag.outputs.release }}
