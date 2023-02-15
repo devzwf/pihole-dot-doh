@@ -21,6 +21,8 @@ jobs:
           base-image: pihole/pihole:latest
           image: devzwf/pihole-dot-doh:latest
         if: ${{ github.event_name == 'schedule' }}
+        env:
+          DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
 
   build:
     needs: check
