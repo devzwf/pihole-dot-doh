@@ -2,6 +2,9 @@
 
 All major changes to this project will be documented here.
 
+### 2023-11-18
+- Update version log
+
 ## 2022-12-07
 
 ### Changed
