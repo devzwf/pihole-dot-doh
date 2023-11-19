@@ -9,7 +9,7 @@ cd /tmp \
 && wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb \
 && apt install -y ./cloudflared-linux-amd64.deb \
 && rm -f ./cloudflared-linux-amd64.deb \
-&& echo "$(date "+%d.%m.%Y %T") Cloudflared installed for amd64" >> /build_date.info
+&& echo "$(date "+%d.%m.%Y %T") $(cloudflared -V) installed for amd64" >> /build_date.info
 
 
 useradd -s /usr/sbin/nologin -r -M cloudflared \
