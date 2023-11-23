@@ -21,7 +21,6 @@ services:
       - "53:53/udp"
       - "67:67/udp"
       - "82:80/tcp"
-      - "10443:443/tcp"
     environment:
       TZ: 'America/Toronto'
       #WEBPASSWORD: 'password'
