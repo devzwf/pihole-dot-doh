@@ -6,7 +6,7 @@ Official pihole docker with both DoT (DNS over TLS) and DoH (DNS over HTTPS) cli
 
 ## Usage:
 
-For docker parameters, refer to [official pihole docker readme](https://github.com/pi-hole/pi-hole). Below is an docker compose example.
+For docker parameters, refer to [official pihole docker readme](https://github.com/pi-hole/docker-pi-hole). Below is an docker compose example.
 
 ```
 version: '3.0'
