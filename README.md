@@ -24,8 +24,7 @@ services:
     environment:
       TZ: 'America/Toronto'
       #WEBPASSWORD: 'password'
-      DNS1: '127.1.1.1#5153'
-      DNS2: '127.2.2.2#5253'
+      PIHOLE_DNS_: '127.1.1.1#5153;127.2.2.2#5253'
       #INTERFACE: 'br0'
       ServerIP: <IP of the docker host>
       ServerIPv6: ''
