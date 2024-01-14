@@ -2,6 +2,9 @@
 
 All major changes to this project will be documented here.
 
+### 2024-01-14
+  - Update readme to update deprecated variable in compose file
+
 ### 2023-11-18
 - Update version log
 
