@@ -53,3 +53,18 @@ if [ ! -f /config/unbound.conf ]; then
         -e "s/@SLABS@/${slabs}/" \
         /temp/unbound.conf > /temp/unbound.conf.tmp && mv /temp/unbound.conf.tmp /temp/unbound.conf
 fi
+
+
+IPv6_lower=$(echo "$IPv6" | tr '[:upper:]' '[:lower:]')
+
+if [ "$IPv6_lower" = "true" ]; then
+    sed -i '/^\s*do-ip6:/ s/no/yes/' /temp/unbound.conf
+    if [ -f /config/unbound.conf ]; then
+        sed -i '/^\s*do-ip6:/ s/no/yes/' /config/unbound.conf
+    fi
+else
+    sed -i '/^\s*do-ip6:/ s/yes/no/' /temp/unbound.conf
+    if [ -f /config/unbound.conf ]; then
+        sed -i '/^\s*do-ip6:/ s/yes/no/' /config/unbound.conf
+    fi
+fi
