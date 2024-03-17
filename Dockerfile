@@ -24,7 +24,7 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev libnghttp2-dev make
     echo "${UNBOUND_SHA256} *unbound.tar.gz" | sha256sum -c - && \
     tar xzf unbound.tar.gz && \
     rm -f unbound.tar.gz && \
-    cd unbound-1.19.3 && \
+    cd unbound-${UNBOUND_VERSION} && \
     groupadd unbound && \
     useradd -g unbound -s /dev/null -d /etc unbound && \
     ./configure \
