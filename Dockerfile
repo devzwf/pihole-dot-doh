@@ -3,9 +3,9 @@ ARG TAG='latest'
 
 FROM debian:bullseye as unbound
 
-ARG UNBOUND_VERSION=1.19.2
+ARG UNBOUND_VERSION=1.19.3
 ARG UNBOUND_SHA256=cc560d345734226c1b39e71a769797e7fdde2265cbb77ebce542704bba489e55
-ARG UNBOUND_DOWNLOAD_URL=https://nlnetlabs.nl/downloads/unbound/unbound-1.19.2.tar.gz
+ARG UNBOUND_DOWNLOAD_URL=https://nlnetlabs.nl/downloads/unbound/unbound-1.19.3.tar.gz
 
 WORKDIR /tmp/src
 
@@ -24,7 +24,7 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev libnghttp2-dev make
     echo "${UNBOUND_SHA256} *unbound.tar.gz" | sha256sum -c - && \
     tar xzf unbound.tar.gz && \
     rm -f unbound.tar.gz && \
-    cd unbound-1.19.2 && \
+    cd unbound-1.19.3 && \
     groupadd unbound && \
     useradd -g unbound -s /dev/null -d /etc unbound && \
     ./configure \
