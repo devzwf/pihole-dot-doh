@@ -2,11 +2,13 @@
 
 <a href="https://github.com/devzwf/pihole-dot-doh/blob/main/CHANGELOG.MD"><img src="https://img.shields.io/badge/🔶-Changelog-blue" /></a> <a href="https://ko-fi.com/O5O0FG195"><img src="https://img.shields.io/badge/%E2%98%95-Buy%20me%20a%20coffee-red" /></a>
 
-Official pihole docker with both DoT (DNS over TLS) and DoH (DNS over HTTPS) clients. Don't browse the web securely and yet still send your DNS queries in plain text!
+Official pihole docker with both DoT (DNS over TLS), DoH (DNS over HTTPS)  and unbound clients. Don't browse the web securely and yet still send your DNS queries in plain text!
 
 ## Usage:
 
-For docker parameters, refer to [official pihole docker readme](https://github.com/pi-hole/docker-pi-hole?tab=readme-ov-file#environment-variables). Below is an docker compose example.
+For docker parameters, refer to [official pihole docker readme](https://github.com/pi-hole/docker-pi-hole?tab=readme-ov-file#environment-variables). 
+
+Below is an docker compose example.
 
 ```
 version: '3.0'
@@ -37,6 +39,9 @@ services:
       - './pihole/:/etc/pihole/'
       - './dnsmasq.d/:/etc/dnsmasq.d/'
       - './config/:/config'
+      - './log/pihole/:/var/log/pihole
+      #Unbound Log if you need it
+      #- './log/unbound/:/var/log/unbound
     cap_add:
       - NET_ADMIN
     restart: unless-stopped
@@ -58,10 +63,10 @@ If no logs are collected you might need to enable "log-queries" in the "unbound.
 
 ### Notes:
 
-- Remember to set pihole env DNS1 and DNS2 to use the DoH / DoT IP below. If either DNS1 or DNS2 is NOT set, Pihole will use a non-encrypted service.
+- Remember to set pihole env PIHOLE_DNS_ to use the DoH / DoT / Unbound IP below. If PIHOLE_DNS_ is NOT set, Pihole will use a non-encrypted service.
   - DoH service (cloudflared) runs at 127.1.1.1#5153. Uses cloudflare (1.1.1.1 / 1.0.0.1) by default
   - DoT service (stubby) runs at 127.2.2.2#5253. Uses google (8.8.8.8 / 8.8.4.4) by default
-  - To use just DoH or just DoT service, set both DNS1 and DNS2 to the same value.
+  - Unbound service run at 127.0.0.1#5335
 - In addition to the 2 official paths, you can also map container /config to expose configuration yml files for cloudflared (cloudflared.yml) and stubby (stubby.yml).
   - Edit these files to add / remove services as you wish. The flexibility is yours.
 - Credits:
@@ -69,6 +74,7 @@ If no logs are collected you might need to enable "log-queries" in the "unbound.
   - Cloudflared client was obtained from [official site](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation#linux)
   - Stubby is a standard debian package
   - doh and dot was based from https://github.com/testdasi/pihole-dot-doh
+  - Joly0 for the unbound integration (https://github.com/Joly0)
   - update since other container was falling behind version
 
 # Support
