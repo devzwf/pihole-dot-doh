@@ -41,6 +41,9 @@ useradd -s /usr/sbin/nologin -r -M cloudflared \
 mkdir -p /etc/cloudflared \
     && rm -f /etc/cloudflared/config.yml
     
+# add unbound version to build.info
+echo "$(date "+%d.%m.%Y %T") Unbound $(unbound -V | head -1) installed for ${ARCH}" >> /build_date.info    
+
 # clean up
 apt -y autoremove \
     && apt -y autoclean \
