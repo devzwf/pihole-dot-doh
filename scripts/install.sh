@@ -40,6 +40,9 @@ useradd -s /usr/sbin/nologin -r -M cloudflared \
 # clean cloudflared config
 mkdir -p /etc/cloudflared \
     && rm -f /etc/cloudflared/config.yml
+    
+# add unbound version to build.info
+echo "$(date "+%d.%m.%Y %T") Unbound $(unbound -V | head -1) installed for ${ARCH}" >> /build_date.info    
 
 # clean up
 apt -y autoremove \
@@ -55,6 +58,11 @@ echo '#!/usr/bin/env bash' | tee /etc/services.d/pihole-dot-doh/run
 # Copy config file if not exists
 echo 'cp -n /temp/stubby.yml /config/' | tee -a /etc/services.d/pihole-dot-doh/run
 echo 'cp -n /temp/cloudflared.yml /config/' | tee -a /etc/services.d/pihole-dot-doh/run
+echo 'cp -n /temp/unbound.conf /config/' | tee -a /etc/services.d/pihole-dot-doh/run
+echo 'cp -n /temp/forward-records.conf /config/' | tee -a /etc/services.d/pihole-dot-doh/run
+# run unbound in background
+echo 's6-echo "Starting unbound"' | tee -a /etc/services.d/pihole-dot-doh/run
+echo '/usr/local/sbin/unbound -p -c /config/unbound.conf' | tee -a /etc/services.d/pihole-dot-doh/run
 # run stubby in background
 echo 's6-echo "Starting stubby"' | tee -a /etc/services.d/pihole-dot-doh/run
 echo 'stubby -g -C /config/stubby.yml' | tee -a /etc/services.d/pihole-dot-doh/run
@@ -69,4 +77,12 @@ echo 's6-echo "Stopping stubby"' | tee -a /etc/services.d/pihole-dot-doh/finish
 echo 'killall -9 stubby' | tee -a /etc/services.d/pihole-dot-doh/finish
 echo 's6-echo "Stopping cloudflared"' | tee -a /etc/services.d/pihole-dot-doh/finish
 echo 'killall -9 cloudflared' | tee -a /etc/services.d/pihole-dot-doh/finish
+echo 's6-echo "Stopping unbound"' | tee -a /etc/services.d/pihole-dot-doh/finish
+echo 'killall -9 unbound' | tee -a /etc/services.d/pihole-dot-doh/finish
 chmod 755 /etc/services.d/pihole-dot-doh/finish
+
+# creating oneshot for unbound
+mkdir -p /etc/cont-init.d/
+# run file
+cp -n /temp/unbound.sh /etc/cont-init.d/unbound
+chmod 755 /etc/cont-init.d/unbound
