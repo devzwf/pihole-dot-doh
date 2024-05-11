@@ -1,0 +1,43 @@
+name: Update Unbound Dockerfile
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Run every day at midnight
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Get latest Unbound version
+        id: get_version
+        run: |
+          URL="https://nlnetlabs.nl/downloads/unbound/"
+          VERSION=$(curl -sL $URL | grep -oP 'unbound-\K[\d.]+(?=.tar.gz)' 2>/dev/null | tail -1)
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Get SHA1 hash
+        id: get_sha1
+        run: |
+          URL="https://nlnetlabs.nl/downloads/unbound/"
+          SHA1=$(curl -sL $URL | grep -oP 'unbound-\d+(\.\d+)+\.tar\.gz\.sha1' | tail -1)
+          SHA1_HASH=$(curl -sL "$URL/$SHA1" | awk '{print $1}')
+          echo "SHA1_HASH=${SHA1_HASH}" >> $GITHUB_ENV
+
+      - name: Update Dockerfile
+        run: |
+          sed -i "s/ARG UNBOUND_VERSION=.*/ARG UNBOUND_VERSION=${VERSION}/g" Dockerfile
+          sed -i "s/ARG UNBOUND_SHA256=.*/ARG UNBOUND_SHA256=${SHA1_HASH}/g" Dockerfile
+          sed -i "s|ARG UNBOUND_DOWNLOAD_URL=.*|ARG UNBOUND_DOWNLOAD_URL=https://nlnetlabs.nl/downloads/unbound/unbound-${VERSION}.tar.gz|g" Dockerfile
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: update-unbound-version
+          commit-message: "chore: Update Unbound version to ${{ env.VERSION }}"
+          title: "chore: Update Unbound version to ${{ env.VERSION }}"
+          body: "This pull request updates the Unbound version in the Dockerfile to ${{ env.VERSION }}."
