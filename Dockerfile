@@ -3,9 +3,9 @@ ARG TAG='latest'
 
 FROM debian:bullseye as unbound
 
-ARG UNBOUND_VERSION=1.19.3
-ARG UNBOUND_SHA256=3ae322be7dc2f831603e4b0391435533ad5861c2322e34a76006a9fb65eb56b9
-ARG UNBOUND_DOWNLOAD_URL=https://nlnetlabs.nl/downloads/unbound/unbound-1.19.3.tar.gz
+ARG UNBOUND_VERSION=1.20.0
+ARG UNBOUND_SHA256=e1963919e49a64151bed2475e470042b631950fb
+ARG UNBOUND_DOWNLOAD_URL=https://nlnetlabs.nl/downloads/unbound/unbound-1.20.0.tar.gz
 
 WORKDIR /tmp/src
 
