@@ -25,7 +25,7 @@ jobs:
         run: |
           URL="https://nlnetlabs.nl/downloads/unbound/"
           SHA256=$(curl -sL $URL | grep -oP 'unbound-\d+(\.\d+)+\.tar\.gz\.sha256' | tail -1)
-          SHA256_HASH=$(curl -sL "$URL/$SHA1" | awk '{print $1}')
+          SHA256_HASH=$(curl -sL "$URL/$SHA256" | awk '{print $1}')
           echo "SHA256_HASH=${SHA256_HASH}" >> $GITHUB_ENV
 
       - name: Check if Dockerfile needs update
