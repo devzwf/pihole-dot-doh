@@ -3,6 +3,7 @@ name: Update Unbound Dockerfile
 on:
   schedule:
     - cron: '0 0 * * *'  # Run every day at midnight
+  workflow_dispatch:  # Allows manual triggering
 
 jobs:
   update:
@@ -27,13 +28,20 @@ jobs:
           SHA1_HASH=$(curl -sL "$URL/$SHA1" | awk '{print $1}')
           echo "SHA1_HASH=${SHA1_HASH}" >> $GITHUB_ENV
 
-      - name: Update Dockerfile
+      - name: Check if Dockerfile needs update
+        id: check_dockerfile
         run: |
-          sed -i "s/ARG UNBOUND_VERSION=.*/ARG UNBOUND_VERSION=${VERSION}/g" Dockerfile
-          sed -i "s/ARG UNBOUND_SHA256=.*/ARG UNBOUND_SHA256=${SHA1_HASH}/g" Dockerfile
-          sed -i "s|ARG UNBOUND_DOWNLOAD_URL=.*|ARG UNBOUND_DOWNLOAD_URL=https://nlnetlabs.nl/downloads/unbound/unbound-${VERSION}.tar.gz|g" Dockerfile
+          CURRENT_VERSION=$(grep -oP 'ARG UNBOUND_VERSION=\K[\d.]+' Dockerfile)
+          if [ "$CURRENT_VERSION" != "${{ env.VERSION }}" ]; then
+            echo "Dockerfile needs update"
+            echo "UPDATE_DOCKERFILE=true" >> $GITHUB_ENV
+          else
+            echo "Dockerfile is up to date"
+            echo "UPDATE_DOCKERFILE=false" >> $GITHUB_ENV
+          fi
 
       - name: Create Pull Request
+        if: steps.check_dockerfile.outputs.UPDATE_DOCKERFILE == 'true'
         uses: peter-evans/create-pull-request@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
