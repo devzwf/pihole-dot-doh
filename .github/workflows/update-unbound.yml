@@ -20,13 +20,13 @@ jobs:
           VERSION=$(curl -sL $URL | grep -oP 'unbound-\K[\d.]+(?=.tar.gz)' 2>/dev/null | tail -1)
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
-      - name: Get SHA1 hash
-        id: get_sha1
+      - name: Get SHA256 hash
+        id: get_sha256
         run: |
           URL="https://nlnetlabs.nl/downloads/unbound/"
-          SHA1=$(curl -sL $URL | grep -oP 'unbound-\d+(\.\d+)+\.tar\.gz\.sha1' | tail -1)
-          SHA1_HASH=$(curl -sL "$URL/$SHA1" | awk '{print $1}')
-          echo "SHA1_HASH=${SHA1_HASH}" >> $GITHUB_ENV
+          SHA256=$(curl -sL $URL | grep -oP 'unbound-\d+(\.\d+)+\.tar\.gz\.sha256' | tail -1)
+          SHA256_HASH=$(curl -sL "$URL/$SHA1" | awk '{print $1}')
+          echo "SHA256_HASH=${SHA256_HASH}" >> $GITHUB_ENV
 
       - name: Check if Dockerfile needs update
         id: check_dockerfile
