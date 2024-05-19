@@ -1,0 +1,51 @@
+name: Update Unbound Dockerfile
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Run every day at midnight
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Get latest Unbound version
+        id: get_version
+        run: |
+          URL="https://nlnetlabs.nl/downloads/unbound/"
+          VERSION=$(curl -sL $URL | grep -oP 'unbound-\K[\d.]+(?=.tar.gz)' 2>/dev/null | tail -1)
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Get SHA256 hash
+        id: get_sha256
+        run: |
+          URL="https://nlnetlabs.nl/downloads/unbound/"
+          SHA256=$(curl -sL $URL | grep -oP 'unbound-\d+(\.\d+)+\.tar\.gz\.sha256' | tail -1)
+          SHA256_HASH=$(curl -sL "$URL/$SHA256" | awk '{print $1}')
+          echo "SHA256_HASH=${SHA256_HASH}" >> $GITHUB_ENV
+
+      - name: Check if Dockerfile needs update
+        id: check_dockerfile
+        run: |
+          CURRENT_VERSION=$(grep -oP 'ARG UNBOUND_VERSION=\K[\d.]+' Dockerfile)
+          if [ "$CURRENT_VERSION" != "${{ env.VERSION }}" ]; then
+            echo "Dockerfile needs update"
+            echo "UPDATE_DOCKERFILE=true" >> $GITHUB_ENV
+          else
+            echo "Dockerfile is up to date"
+            echo "UPDATE_DOCKERFILE=false" >> $GITHUB_ENV
+          fi
+
+      - name: Create Pull Request
+        if: steps.check_dockerfile.outputs.UPDATE_DOCKERFILE == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: update-unbound-version
+          commit-message: "chore: Update Unbound version to ${{ env.VERSION }}"
+          title: "chore: Update Unbound version to ${{ env.VERSION }}"
+          body: "This pull request updates the Unbound version in the Dockerfile to ${{ env.VERSION }}."
