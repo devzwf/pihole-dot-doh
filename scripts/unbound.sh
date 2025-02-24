@@ -6,7 +6,7 @@ if [ ! -f /var/lib/unbound/root.hints ]; then
     wget https://www.internic.net/domain/named.root -qO- | tee /var/lib/unbound/root.hints >/dev/null
 fi
 
-s6-echo "$(date "+%d.%m.%Y %T") Unbound $(unbound -V | grep "Version") installed"
+# s6-echo "$(date "+%d.%m.%Y %T") Unbound $(unbound -V | grep "Version") installed"
 
 if [ ! -f /var/log/unbound/unbound.log ]; then
     mkdir -p /var/log/unbound
