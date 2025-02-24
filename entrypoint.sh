@@ -5,9 +5,6 @@ chmod 755 /temp/unbound.sh
 /temp/unbound.sh
 
 
-# # Creating pihole-dot-doh service
-# mkdir -p /etc/services.d/pihole-dot-doh
-# mkdir -p /config/
 # Copy config file if not exists
 if [ ! -f /config/cloudflared.yml ]; then
     cp -n /temp/cloudflared.yml /config/
