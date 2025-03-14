@@ -4,46 +4,65 @@
 
 Official pihole docker with both DoT (DNS over TLS), DoH (DNS over HTTPS)  and unbound clients. Don't browse the web securely and yet still send your DNS queries in plain text!
 
+## Upgrade Notes
+
+> [!CAUTION]
+>
+> ## !!! THE LATEST VERSION CONTAINS BREAKING CHANGES
+>
+> **Pi-hole v6 has been entirely redesigned from the ground up and contains many breaking changes.**
+>
+> Environment variable names have changed, script locations may have changed.
+>
+> If you are using volumes to persist your configuration, be careful.<br>Replacing any `v5` image *(`2024.07.0` and earlier)* with a `v6` image will result in updated configuration files. **These changes are irreversible**.
+>
+> Please read the README carefully before proceeding.
+>
+> https://docs.pi-hole.net/docker/
+
+
 ## Usage:
 
-For docker parameters, refer to [official pihole docker readme](https://github.com/pi-hole/docker-pi-hole?tab=readme-ov-file#environment-variables). 
+For docker parameters, refer to [official pihole docker readme](https://github.com/pi-hole/pi-hole). Below is an docker compose example.
 
 Below is an docker compose example.
 
 ```
-version: '3.0'
-
 services:
   pihole:
-    container_name: pihole-dot-doh
-    image: devzwf/pihole-dot-doh:latest
-    hostname: pihole1
+    container_name: pihole_v6
+    image: devzwf/pihole-dot-doh:latest-v6
     ports:
+      # DNS Ports
       - "53:53/tcp"
       - "53:53/udp"
-      - "67:67/udp"
-      - "82:80/tcp"
+      # Default HTTP Port
+      - "80:80/tcp"
+      # Default HTTPs Port. FTL will generate a self-signed certificate
+      - "443:443/tcp"
+      # Uncomment the below if using Pi-hole as your DHCP Server
+      #- "67:67/udp"
     environment:
+      # Set the appropriate timezone for your location (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), e.g:
       TZ: 'America/Toronto'
-      #WEBPASSWORD: 'password'
-      PIHOLE_DNS_: '127.1.1.1#5153;127.2.2.2#5253'
-      #INTERFACE: 'br0'
-      FTLCONF_LOCAL_IPV4: '<IP of the docker host>'
-      FTLCONF_LOCAL_IPV6: ''
-      IPv6: 'False'
-      DNSMASQ_LISTENING: 'all'
-      # Use boxed layout (helpful when working on large screens)
-      #WEBUI BOXED LAYOUT: 'boxed'
+      # Set a password to access the web interface. Not setting one will result in a random password being assigned
+      FTLCONF_webserver_api_password: '<WEB_PASSWORD>'
+      FTLCONF_dns_upstreams: '127.1.1.1#5153;127.0.0.1#5335'
+      FTLCONF_dns_listeningMode: 'all'
     # Volumes store your data between container upgrades
     volumes:
-      - './pihole/:/etc/pihole/'
-      - './dnsmasq.d/:/etc/dnsmasq.d/'
-      - './config/:/config'
-      - './log/pihole/:/var/log/pihole
-      #Unbound Log if you need it
-      #- './log/unbound/:/var/log/unbound
-    cap_add:
-      - NET_ADMIN
+      # For persisting Pi-hole's databases and common configuration file
+      - './piholev6/etc-pihole:/etc/pihole'
+      - './piholev6/config/:/config'
+      - './piholev6/log:/var/log
+      # Uncomment the below if you have custom dnsmasq config files that you want to persist. Not needed for most.
+      #- './piholev6/etc-dnsmasq.d:/etc/dnsmasq.d'
+      
+    #cap_add:
+      # See https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
+      # Required if you are using Pi-hole as your DHCP server, else not needed
+      #- NET_ADMIN
+      #- CAP_SYS_NICE
     restart: unless-stopped
 ```
 
@@ -65,14 +84,14 @@ If no logs are collected you might need to enable "log-queries" in the "unbound.
 
 - Remember to set pihole env PIHOLE_DNS_ to use the DoH / DoT / Unbound IP below. If PIHOLE_DNS_ is NOT set, Pihole will use a non-encrypted service.
   - DoH service (cloudflared) runs at 127.1.1.1#5153. Uses cloudflare (1.1.1.1 / 1.0.0.1) by default
-  - DoT service (stubby) runs at 127.2.2.2#5253. Uses google (8.8.8.8 / 8.8.4.4) by default
+  - DoT service (stubby) runs at 127.2.2.2#5253. Uses google (8.8.8.8 / 8.8.4.4) by default (removed for now)
   - Unbound service run at 127.0.0.1#5335
 - In addition to the 2 official paths, you can also map container /config to expose configuration yml files for cloudflared (cloudflared.yml) and stubby (stubby.yml).
   - Edit these files to add / remove services as you wish. The flexibility is yours.
 - Credits:
   - Pihole base image is the official [pihole/pihole:latest](https://hub.docker.com/r/pihole/pihole/tags?page=1&name=latest)
   - Cloudflared client was obtained from [official site](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation#linux)
-  - Stubby is a standard debian package
+  - Stubby is a standard debian package (removed for now)
   - doh and dot was based from https://github.com/testdasi/pihole-dot-doh
   - Joly0 for the unbound integration (https://github.com/Joly0)
   - update since other container was falling behind version
@@ -81,12 +100,3 @@ If no logs are collected you might need to enable "log-queries" in the "unbound.
 
 [![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/devzwf)
 
-
-### Important Changes:
-
-Some variables for the example docker compose has been updated reflecting changes of the pi-hole docker container.
-Changes are:
-- "DNS1" and "DNS1" has been replaced with the single variable "PIHOLE_DNS_". You can add multiple dns servers here, separated by a semicolon ;
-- "ServerIP" has been replaced with "FTLCONF_LOCAL_IPV4"
-- "ServerIPv6" has been replaced with "FTLCONF_LOCAL_IPV6"
-- Variable "WEBUI BOXED LAYOUT" with the value "boxed" has been added as an optional variable, as its suggested by the upstream pi-hole docker container as its helpful if you open pi-hole on a large screens
