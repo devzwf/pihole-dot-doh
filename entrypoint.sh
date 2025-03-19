@@ -11,7 +11,7 @@ if [ ! -f /config/cloudflared.yml ]; then
 fi
 
 if [ ! -f /config/unbound.conf ]; then
-    /temp/unbound.conf /config/
+    cp /temp/unbound.conf /config/
 fi
 if [ ! -f /config/forward-records.conf ]; then
     cp -n /temp/forward-records.conf /config/
