@@ -1,7 +1,8 @@
 ARG FRM='pihole/pihole'
 ARG TAG='latest'
 
-FROM debian:bullseye as unbound
+# Build unbound in an Alpine environment
+FROM alpine:latest AS unbound
 
 ARG UNBOUND_VERSION=1.22.0
 ARG UNBOUND_SHA256=c5dd1bdef5d5685b2cedb749158dd152c52d44f65529a34ac15cd88d4b1b3d43
@@ -9,24 +10,16 @@ ARG UNBOUND_DOWNLOAD_URL=https://nlnetlabs.nl/downloads/unbound/unbound-1.22.0.t
 
 WORKDIR /tmp/src
 
-RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev libnghttp2-dev make libssl-dev" && \
-    set -x && \
-    DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
-      $build_deps \
-      bsdmainutils \
-      ca-certificates \
-      ldnsutils \
-      libevent-2.1-7 \
-      libexpat1 \
-      libprotobuf-c-dev \
-      protobuf-c-compiler && \
+RUN build_deps="curl gcc make libc-dev openssl-dev libevent-dev expat-dev nghttp2-dev protobuf-c-dev" && \
+    apk add \
+      $build_deps && \
     curl -sSL $UNBOUND_DOWNLOAD_URL -o unbound.tar.gz && \
     echo "${UNBOUND_SHA256} *unbound.tar.gz" | sha256sum -c - && \
     tar xzf unbound.tar.gz && \
     rm -f unbound.tar.gz && \
     cd unbound-${UNBOUND_VERSION} && \
-    groupadd unbound && \
-    useradd -g unbound -s /dev/null -d /etc unbound && \
+    addgroup unbound && \
+    adduser -G unbound -h /etc -s /bin/null -D unbound && \
     ./configure \
         --disable-dependency-tracking \
         --with-pthreads \
@@ -37,14 +30,14 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev libnghttp2-dev make
         --enable-tfo-server \
         --enable-tfo-client \
         --enable-event-api \
-        --enable-subnet && \
+        --enable-subnet \
+        --with-ssl=/usr && \
     make -j$(nproc) install && \
-    apt-get purge -y --auto-remove \
-      $build_deps && \
-    rm -rf \
-        /tmp/* \
-        /var/tmp/* \
-        /var/lib/apt/lists/*
+    # Copy required Alpine shared libraries
+    mkdir -p /usr/local/lib-copy && \
+    ldd /usr/local/sbin/unbound | grep "=> /" | awk '{print $3}' | sort | uniq | xargs -I{} cp -L {} /usr/local/lib-copy/ && \
+    # Create a tar of the libs for extraction
+    cd /usr/local/lib-copy && tar czf /tmp/unbound-libs.tar.gz *
 
 FROM ${FRM}:${TAG}
 ARG FRM
@@ -57,16 +50,23 @@ COPY --from=unbound /usr/local/sbin/unbound* /usr/local/sbin/
 COPY --from=unbound /usr/local/lib/libunbound* /usr/local/lib/
 COPY --from=unbound /usr/local/etc/unbound/* /usr/local/etc/unbound/
 
-RUN apt update && \
-    apt install -y bash nano curl wget stubby libssl-dev
+RUN apk update && \
+    apk add perl openssl ca-certificates libevent
+
+#RUN apk update && \
+#  apk add --no-cache bash nano libevent curl wget tzdata shadow perl
 
 ADD scripts /temp
 
 RUN groupadd unbound \
-    && useradd -g unbound unbound \
-    && /bin/bash /temp/install.sh \
-    && rm -rf /temp/install.sh 
+  && useradd -g unbound unbound 
+RUN /bin/bash /temp/install.sh \
+  && rm -rf /temp/install.sh 
 
 VOLUME ["/config"]
 
 RUN echo "$(date "+%d.%m.%Y %T") Built from ${FRM} with tag ${TAG}" >> /build_date.info
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
