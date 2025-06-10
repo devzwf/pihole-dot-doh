@@ -29,7 +29,9 @@ fi
 if [ ! -f /config/forward-records.conf ]; then
     cp -n /temp/forward-records.conf /config/
 fi
-
+if [ ! -f /config/stubby.yml ]; then
+    cp -n /temp/stubby.yml /config/
+fi
 
 # Start Unbound in the foreground
 echo "Starting Unbound..."
@@ -37,6 +39,9 @@ echo "Starting Unbound..."
 
 echo "Starting Cloudflared..."
 /usr/local/bin/cloudflared --config /config/cloudflared.yml &
+
+echo "Starting Stubby....."
+stubby -g -C /config/stubby.yml &
 
 echo "Starting Pihole..."
 # Start pihole

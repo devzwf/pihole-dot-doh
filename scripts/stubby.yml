@@ -1,0 +1,80 @@
+# For more information see
+# https://dnsprivacy.org/wiki/display/DP/Configuring+Stubby
+
+# Specifies whether to run as a recursive or stub resolver
+# For stubby this MUST be set to GETDNS_RESOLUTION_STUB
+resolution_type: GETDNS_RESOLUTION_STUB
+
+# Ordered list composed of one or more transport protocols:
+# GETDNS_TRANSPORT_UDP, GETDNS_TRANSPORT_TCP or GETDNS_TRANSPORT_TLS
+# If only one transport value is specified it will be the only transport used.
+dns_transport_list:
+  - GETDNS_TRANSPORT_TLS
+
+# Selects Strict or Opportunistic Usage profile as described in
+# https://datatracker.ietf.org/doc/draft-ietf-dprive-dtls-and-tls-profiles/
+# Strict mode requires that authentication information for the upstreams is
+# specified below. Opportunistic may fallback to clear text DNS if UDP or TCP
+# is included in the transport list above.
+# For Strict use        GETDNS_AUTHENTICATION_REQUIRED
+# For Opportunistic use GETDNS_AUTHENTICATION_NONE
+tls_authentication: GETDNS_AUTHENTICATION_REQUIRED
+
+# EDNS0 option to pad the size of the DNS query to the given blocksize
+# 128 is currently recommended by
+# https://tools.ietf.org/html/draft-ietf-dprive-padding-policy-03
+tls_query_padding_blocksize: 128
+
+# EDNS0 option for ECS client privacy as described in Section 7.1.2 of
+# https://tools.ietf.org/html/rfc7871
+edns_client_subnet_private : 1
+
+############################# CONNECTION SETTINGS ##############################
+# Set to 1 to instruct stubby to distribute queries across all available name
+# servers - this will use multiple simultaneous connections which can give
+# better performance is most (but not all) cases.
+# Set to 0 to treat the upstreams below as an ordered list and use a single
+# upstream until it becomes unavailable, then use the next one.
+round_robin_upstreams: 1
+
+# EDNS0 option for keepalive idle timeout in ms as specified in
+# https://tools.ietf.org/html/rfc7828
+# This keeps idle TLS connections open to avoid the overhead of opening a new
+# connection for every query.
+idle_timeout: 10000
+
+################################ LISTEN ADDRESS ################################
+listen_addresses:
+  - 127.2.2.2@5253
+
+##################################  UPSTREAMS  ################################
+# Specify the list of upstream recursive name servers to send queries to
+# In Strict mode upstreams need either a tls_auth_name or a tls_pubkey_pinset
+# so the upstream can be authenticated.
+# The information for an upstream can include the following:
+# - address_data: IPv4 or IPv6 address of the upstream
+#   port: Port for UDP/TCP (default is 53)
+#   tls_auth_name: Authentication domain name checked against the server
+#                  certificate
+#   tls_pubkey_pinset: An SPKI pinset verified against the keys in the server
+#                      certificate
+#     - digest: Only "sha256" is currently supported
+#       value: Base64 encoded value of the sha256 fingerprint of the public
+#              key
+#   tls_port: Port for TLS (default is 853)
+upstream_recursive_servers:
+####### IPv4 addresses ######
+### Anycast services ###
+## Quad 9 'secure' service - Filters, does DNSSEC, doesn't send ECS
+#  - address_data: 9.9.9.9
+#    tls_auth_name: "dns.quad9.net"
+## Cloudflare 1.1.1.1 and 1.0.0.1
+#  - address_data: 1.1.1.1
+#    tls_auth_name: "cloudflare-dns.com"
+#  - address_data: 1.0.0.1
+#    tls_auth_name: "cloudflare-dns.com"
+## Google
+  - address_data: 8.8.8.8
+    tls_auth_name: "dns.google"
+  - address_data: 8.8.4.4
+    tls_auth_name: "dns.google"
