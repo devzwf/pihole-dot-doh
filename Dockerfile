@@ -4,9 +4,9 @@ ARG TAG='latest'
 # Build unbound in an Alpine environment
 FROM alpine:latest AS unbound
 
-ARG UNBOUND_VERSION=1.22.0
-ARG UNBOUND_SHA256=c5dd1bdef5d5685b2cedb749158dd152c52d44f65529a34ac15cd88d4b1b3d43
-ARG UNBOUND_DOWNLOAD_URL=https://nlnetlabs.nl/downloads/unbound/unbound-1.22.0.tar.gz
+ARG UNBOUND_VERSION=1.23.0
+ARG UNBOUND_SHA256=959bd5f3875316d7b3f67ee237a56de5565f5b35fc9b5fc3cea6cfe735a03bb8
+ARG UNBOUND_DOWNLOAD_URL=https://nlnetlabs.nl/downloads/unbound/unbound-1.23.0.tar.gz
 
 WORKDIR /tmp/src
 
