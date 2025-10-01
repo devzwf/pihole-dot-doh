@@ -35,13 +35,17 @@ useradd -s /usr/sbin/nologin -r -M cloudflared \
 # install stubby
 apk add --update --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/community/ stubby \
     && echo "$(date "+%d.%m.%Y %T") $(stubby -V) installed for ${ARCH}" >> /build_date.info
-    
+
+# install unbound 
+apk add --update --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/main/ unbound \
+    && echo "$(date "+%d.%m.%Y %T") Unbound $(unbound -V | head -1) installed for ${ARCH}" >> /build_date.info
+
 # clean cloudflared config
 mkdir -p /etc/cloudflared \
     && rm -f /etc/cloudflared/config.yml
     
 # add unbound version to build.info
-echo "$(date "+%d.%m.%Y %T") Unbound $(/usr/local/sbin/unbound -V | head -1) installed for ${ARCH}" >> /build_date.info    
+#echo "$(date "+%d.%m.%Y %T") Unbound $(/usr/local/sbin/unbound -V | head -1) installed for ${ARCH}" >> /build_date.info    
 
 # add pihole version to build.info
 echo "$(date "+%d.%m.%Y %T")  $(/usr/local/bin/pihole -v)"

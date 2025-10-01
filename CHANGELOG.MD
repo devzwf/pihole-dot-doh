@@ -2,6 +2,12 @@
 
 All major changes to this project will be documented here.
 
+## 2025-09-30
+    - Unbound can now be install via apk
+
+## 2025-08-23
+    - Update to 2025.08.0
+    - Update unbound to 1.23.1
 ## 2025-04-05
     - Update vedev to 2025.04.0
     - Fix FTLCONF Env 

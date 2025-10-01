@@ -35,7 +35,7 @@ fi
 
 # Start Unbound in the foreground
 echo "Starting Unbound..."
-/usr/local/sbin/unbound -d -p -c /config/unbound.conf &
+/usr/sbin/unbound -d -p -c /config/unbound.conf &
 
 echo "Starting Cloudflared..."
 /usr/local/bin/cloudflared --config /config/cloudflared.yml &
