@@ -19,9 +19,11 @@ jobs:
 
     steps:
 
-      - name: Install dependencies
-        run: |
-          apt-get update && apt-get install -y jq curl grep tar xz-utils
+      - name: Set up dependencies
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: jq curl grep tar xz-utils
+          version: 1.0
           
       - name: Checkout
         uses: actions/checkout@v4
