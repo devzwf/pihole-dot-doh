@@ -2,9 +2,10 @@
 
 All major changes to this project will be documented here.
 
+## 2025-10.01
+    - update the action and refactor the build
 ## 2025-09-30
     - Unbound can now be install via apk
-
 ## 2025-08-23
     - Update to 2025.08.0
     - Update unbound to 1.23.1
