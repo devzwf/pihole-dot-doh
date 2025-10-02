@@ -8,7 +8,6 @@ on:
     branches:
       - main
 
-
 env:
   USER: ${{ secrets.DOCKERHUB_USERNAME }}
   REPO: ${{ secrets.DOCKERHUB_REPONAME }}
@@ -162,8 +161,8 @@ jobs:
           push: true
           provenance: false
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPONAME }}:dev
-    #        ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPONAME }}:${{ env.FINAL_TAG }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPONAME }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPONAME }}:${{ env.FINAL_TAG }}
 
       ##########################
       # 6. Create PR if Unbound/Cloudflared changed (ne déclenche pas build)
