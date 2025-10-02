@@ -68,3 +68,10 @@ else
         sed -i '/^\s*do-ip6:/ s/yes/no/' /config/unbound.conf
     fi
 fi
+
+cat >> /etc/crontabs/root << 'EOF'
+# Update root hints weekly (Sundays at 3 AM)
+0 3 * * 0 wget https://www.internic.net/domain/named.root -qO /tmp/root.hints.new && [ -s /tmp/root.hints.new ] && mv /tmp/root.hints.new /var/lib/unbound/root.hints && pkill unbound && /usr/local/sbin/unbound -d -p -c /config/unbound.conf & || rm -f /tmp/root.hints.new
+# Update DNSSEC trust anchor weekly (Sundays at 3:15 AM)
+15 3 * * 0 unbound-anchor && pkill unbound && /usr/local/sbin/unbound -d -p -c /config/unbound.conf &
+EOF
