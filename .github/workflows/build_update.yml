@@ -1,0 +1,199 @@
+name: Docker Multi-Arch Build & Updates
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+
+env:
+  USER: ${{ secrets.DOCKERHUB_USERNAME }}
+  REPO: ${{ secrets.DOCKERHUB_REPONAME }}
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Install dependencies
+        run: |
+          apt-get update && apt-get install -y jq curl grep tar xz-utils
+          
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      ##########################
+      # 1. Fetch latest upstream tag
+      ##########################
+      - name: Fetch latest release tag
+        uses: pozetroninc/github-action-get-latest-release@v0.7.0
+        id: latest-tag
+        with:
+          repository: pi-hole/docker-pi-hole
+      
+      
+      - name: Set APP_VERSION      
+        run: |
+          echo "APP_VERSION=${{ steps.latest-tag.outputs.release }}" >> $GITHUB_ENV
+          echo "Latest upstream tag: ${{ env.APP_VERSION }}"
+
+
+      ##########################
+      # 2. Determine if NEED_BUILD
+      ##########################
+      - name: Determine if new upstream
+        id: check-upstream
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" == "push" ]; then
+            # Merge PR → new upstream
+            echo "NEED_BUILD=true" >> $GITHUB_ENV
+          else
+            # Daily / manual → check Docker Hub
+            APP_VERSION="${{ env.APP_VERSION }}"
+            EXISTING=$(curl -s "https://hub.docker.com/v2/repositories/${USER}/${REPO}/tags/?page_size=100" \
+              | jq -r ".results[].name | select(startswith(\"${APP_VERSION}-z\"))" | head -n1)
+            if [ -z "$EXISTING" ]; then
+              echo "NEED_BUILD=true" >> $GITHUB_ENV
+            else
+              echo "NEED_BUILD=false" >> $GITHUB_ENV
+            fi
+          fi
+      
+
+
+      ##########################
+      # 3. Fetch Cloudflared and Unbound
+      ##########################
+      - name: Fetch latest Cloudflared release
+        run: |
+          LATEST=$(curl -s https://api.github.com/repos/cloudflare/cloudflared/releases/latest \
+            | jq -r '.tag_name' | sed 's/^v//')
+          echo "CLOUDFLARED_LATEST_VERSION=$LATEST" >> $GITHUB_ENV
+          echo "CLOUDFLARED_LATEST_VERSION=$LATEST"
+
+      - name: Get latest Unbound version
+        id: get_version_unbound
+        run: |
+          URL="https://nlnetlabs.nl/downloads/unbound/"
+          CONTENT=$(curl -sL $URL)
+          VERSIONS=$(echo "$CONTENT" | sed -n 's/.*unbound-\([0-9.]\+\)\.tar\.gz.*/\1/p')
+          LATEST_VERSION=$(echo "$VERSIONS" | sort -V | tail -n 1)
+          if [ -z "$LATEST_VERSION" ]; then
+            echo "Could not find latest Unbound version" >&2
+            exit 1
+          fi
+          echo "UNBOUND_LATEST_VERSION=$LATEST_VERSION" >> $GITHUB_ENV 
+          echo "UNBOUND_LATEST_VERSION=$LATEST_VERSION"   
+      ##########################
+      # 4. Check if a new image is required
+      ##########################
+      - name: Check if need new Image
+        run: |
+          UPDATE_IMAGE=false
+          # Unbound
+          CURRENT_UNBOUND=$(grep -Eo "ARG UNBOUND_VERSION=[0-9.]+" Dockerfile | cut -d= -f2)
+          if [ "$CURRENT_UNBOUND" != "${{ env.UNBOUND_LATEST_VERSION }}" ]; then UPDATE_IMAGE=true; fi
+          
+          # Cloudflared 
+          CURRENT_CLOUDFLARED=$(grep -Eo 'ARG CLOUDFLARED_VERSION=[0-9.]+' Dockerfile | cut -d= -f2)
+          if [ "$CURRENT_CLOUDFLARED" != "${{ env.CLOUDFLARED_LATEST_VERSION }}" ]; then UPDATE_IMAGE=true; fi
+          echo "UPDATE_IMAGE=$UPDATE_IMAGE" >> $GITHUB_ENV
+          echo "UPDATE_IMAGE=$UPDATE_IMAGE"
+
+      ##########################
+      # 5. Calculate FINAL_TAG
+      ##########################
+      - name: Calculate FINAL_TAG
+        run: |
+          APP_VERSION="${{ env.APP_VERSION }}"
+          # echo "APP_VERSION=$APP_VERSION"
+
+          # Fetch Docker Hub tags
+          TAGS=$(curl -s "https://hub.docker.com/v2/repositories/${USER}/${REPO}/tags/?page_size=100" | jq -r '.results[].name')
+          # echo "All TAGS: $TAGS"
+
+          # Filter tags that match APP_VERSION with -zNN
+          MATCHING_TAGS=$(echo "$TAGS" | grep -E "^${APP_VERSION}-z[0-9]+$" || true)
+          echo "Matching tags: $MATCHING_TAGS"
+
+          # Get highest build number
+          if [ -z "$MATCHING_TAGS" ]; then
+            BUILD_NUM=0
+          else
+            LAST=$(echo "$MATCHING_TAGS" | sed -E "s/^${APP_VERSION}-z([0-9]+)/\1/" | sort -n | tail -1)
+            BUILD_NUM=$((LAST + 1))
+          fi
+
+          # Format as two digits
+          BUILD_NUM=$(printf "%02d" $BUILD_NUM)
+          FINAL_TAG="${APP_VERSION}-z${BUILD_NUM}"
+          echo "FINAL_TAG=$FINAL_TAG" >> $GITHUB_ENV
+          echo "FINAL_TAG=$FINAL_TAG"
+
+      ##########################
+      # 6. Setup Docker Buildx + login
+      ##########################
+      - uses: docker/setup-qemu-action@v2
+      - uses: docker/setup-buildx-action@v2
+      - uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      ##########################
+      # 7. Build multi-arch if new upstream or push main
+      ##########################
+      - name: Build & push multi-arch
+        if: env.NEED_BUILD == 'true' || github.event_name == 'push'
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          platforms: |
+            linux/amd64
+            linux/arm64
+            linux/arm/v8
+            linux/arm/v7
+          push: true
+          provenance: false
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPONAME }}:dev
+    #        ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPONAME }}:${{ env.FINAL_TAG }}
+
+      ##########################
+      # 6. Create PR if Unbound/Cloudflared changed (ne déclenche pas build)
+      ##########################
+      - name: Update Dockerfile
+        if: env.UPDATE_IMAGE == 'true'
+        run: |
+          sed -i "s/^ARG UNBOUND_VERSION=.*/ARG UNBOUND_VERSION=${{ env.UNBOUND_LATEST_VERSION }}/" Dockerfile
+          sed -i "s/^ARG CLOUDFLARED_VERSION=.*/ARG CLOUDFLARED_VERSION=${{ env.CLOUDFLARED_LATEST_VERSION }}/" Dockerfile
+
+      - name: Create Pull Request
+        if: env.UPDATE_IMAGE == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: update-external-apps-${{ env.UNBOUND_LATEST_VERSION }}-${{ env.CLOUDFLARED_LATEST_VERSION }}
+          commit-message: |
+            chore: Update Unbound per-arch versions and Cloudflared
+            Updates:
+            - UNBOUND=${{ env.UNBOUND_LATEST_VERSION }}
+            - CLOUDFLARED=${{ env.CLOUDFLARED_LATEST_VERSION }}
+          title: |
+            chore: Update Unbound per-arch and Cloudflared
+            UNBOUND [${{ env.UNBOUND_LATEST_VERSION }}], CLOUDFLARED [${{ env.CLOUDFLARED_LATEST_VERSION }}]
+          body: |
+            This PR updates the Dockerfile with the following versions:
+
+            **Unbound 
+            - Version : ${{ env.UNBOUND_LATEST_VERSION }}
+
+            **Cloudflared**
+            - Version: ${{ env.CLOUDFLARED_LATEST_VERSION }}
+
+            This PR updates the Dockerfile with the latest Unbound versions and Cloudflared.
+            The multi-arch Docker image will be rebuilt automatically when this PR is merged.
