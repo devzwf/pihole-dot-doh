@@ -40,7 +40,7 @@ jobs:
       - name: Set APP_VERSION      
         run: |
           echo "APP_VERSION=${{ steps.latest-tag.outputs.release }}" >> $GITHUB_ENV
-          echo "Latest upstream tag: ${{ env.APP_VERSION }}"
+          echo "Latest upstream tag: ${{ steps.latest-tag.outputs.release }}"
 
 
       ##########################
