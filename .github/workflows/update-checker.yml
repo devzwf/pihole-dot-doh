@@ -1,0 +1,103 @@
+name: Check for Updates
+
+on:
+  schedule:
+    # Run daily at midnight (adjust as needed)
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allows manual trigger
+
+jobs:
+  check-updates:
+    runs-on: ubuntu-latest
+
+    steps:
+    
+      - name: Set up dependencies
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: jq curl grep tar xz-utils
+          version: 1.0
+          
+      - name: Checkout code
+        uses: actions/checkout@v6
+    
+      ##########################
+      # 1. Fetch Cloudflared and Unbound
+      ##########################
+      - name: Fetch latest Cloudflared release
+        run: |
+          LATEST=$(curl -s https://api.github.com/repos/cloudflare/cloudflared/releases/latest \
+            | jq -r '.tag_name' | sed 's/^v//')
+          echo "CLOUDFLARED_LATEST_VERSION=$LATEST" >> $GITHUB_ENV
+          echo "CLOUDFLARED_LATEST_VERSION=$LATEST"
+
+      - name: Get latest Unbound version
+        id: get_version_unbound
+        run: |
+          URL="https://nlnetlabs.nl/downloads/unbound/"
+          CONTENT=$(curl -sL $URL)
+          VERSIONS=$(echo "$CONTENT" | sed -n 's/.*unbound-\([0-9.]\+\)\.tar\.gz.*/\1/p')
+          LATEST_VERSION=$(echo "$VERSIONS" | sort -V | tail -n 1)
+          if [ -z "$LATEST_VERSION" ]; then
+            echo "Could not find latest Unbound version" >&2
+            exit 1
+          fi
+          echo "UNBOUND_LATEST_VERSION=$LATEST_VERSION" >> $GITHUB_ENV 
+          echo "UNBOUND_LATEST_VERSION=$LATEST_VERSION"  
+
+      ##########################
+      # 2. Check if a PR is required
+      ##########################
+      - name: Check if need new Image
+        run: |
+          UPDATE_IMAGE=false
+          # Unbound
+          CURRENT_UNBOUND=$(grep -Eo "ARG UNBOUND_VERSION=[0-9.]+" Dockerfile | cut -d= -f2)
+          if [ "$CURRENT_UNBOUND" != "${{ env.UNBOUND_LATEST_VERSION }}" ]; then UPDATE_IMAGE=true; fi
+          
+          # Cloudflared 
+          CURRENT_CLOUDFLARED=$(grep -Eo 'ARG CLOUDFLARED_VERSION=[0-9.]+' Dockerfile | cut -d= -f2)
+          if [ "$CURRENT_CLOUDFLARED" != "${{ env.CLOUDFLARED_LATEST_VERSION }}" ]; then UPDATE_IMAGE=true; fi
+          echo "UPDATE_IMAGE=$UPDATE_IMAGE" >> $GITHUB_ENV
+          echo "UPDATE_IMAGE=$UPDATE_IMAGE"
+
+
+      ##########################
+      # 3. Create PR if Unbound/Cloudflared changed (ne déclenche pas build)
+      ##########################
+      - name: Update Dockerfile
+        if: env.UPDATE_IMAGE == 'true'
+        run: |
+          sed -i "s/^ARG UNBOUND_VERSION=.*/ARG UNBOUND_VERSION=${{ env.UNBOUND_LATEST_VERSION }}/" Dockerfile
+          sed -i "s/^ARG CLOUDFLARED_VERSION=.*/ARG CLOUDFLARED_VERSION=${{ env.CLOUDFLARED_LATEST_VERSION }}/" Dockerfile
+
+      - name: Create Pull Request
+        if: env.UPDATE_IMAGE == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: update-external-apps-${{ env.UNBOUND_LATEST_VERSION }}-${{ env.CLOUDFLARED_LATEST_VERSION }}
+          base: "dev"
+          delete-branch: true
+          commit-message: |
+            chore: Update Unbound per-arch versions and Cloudflared
+            Updates:
+            - UNBOUND=${{ env.UNBOUND_LATEST_VERSION }}
+            - CLOUDFLARED=${{ env.CLOUDFLARED_LATEST_VERSION }}
+          title: |
+            chore: Update Unbound per-arch and Cloudflared
+            UNBOUND [${{ env.UNBOUND_LATEST_VERSION }}], CLOUDFLARED [${{ env.CLOUDFLARED_LATEST_VERSION }}]
+          body: |
+            This PR updates the Dockerfile with the following versions:
+
+            **Unbound 
+            - Version : ${{ env.UNBOUND_LATEST_VERSION }}
+
+            **Cloudflared**
+            - Version: ${{ env.CLOUDFLARED_LATEST_VERSION }}
+
+            This PR updates the Dockerfile with the latest Unbound versions and Cloudflared.
+            The multi-arch Docker image will be rebuilt automatically when this PR is merged.
+
+            Please verify this builds correctly on `dev` before merging.
+            
