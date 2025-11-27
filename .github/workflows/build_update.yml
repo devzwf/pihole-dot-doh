@@ -2,7 +2,7 @@ name: Docker Multi-Arch Build & Updates
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 5 * * *'
   workflow_dispatch:
   push:
     branches:
