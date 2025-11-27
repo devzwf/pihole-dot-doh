@@ -3,7 +3,8 @@ name: Check for Updates
 on:
   schedule:
     # Run daily at midnight (adjust as needed)
-    - cron: '0 0 * * *'
+    - cron: '0 7 * * *'
+    
   workflow_dispatch: # Allows manual trigger
 
 jobs:
