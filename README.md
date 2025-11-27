@@ -1,6 +1,12 @@
 <h1 align="center" id="heading"> pihole-dot-doh </h1>
 
-<a href="https://github.com/devzwf/pihole-dot-doh/blob/main/CHANGELOG.MD"><img src="https://img.shields.io/badge/🔶-Changelog-blue" /></a> <a href="https://ko-fi.com/O5O0FG195"><img src="https://img.shields.io/badge/%E2%98%95-Buy%20me%20a%20coffee-red" /></a>
+<p align="center">
+<a href="https://hub.docker.com/r/devzwf/pihole-dot-doh" target="_blank"><img src="https://img.shields.io/docker/v/devzwf/pihole-dot-doh?logo=docker&label=Docker" alt="Docker Image Version" /></a>
+<a href="https://hub.docker.com/r/devzwf/pihole-dot-doh" target="_blank"><img src="https://badgen.net/docker/pulls/devzwf/pihole-dot-doh" /></a>
+<a href="https://github.com/devzwf/pihole-dot-doh/blob/main/CHANGELOG.MD"><img src="https://img.shields.io/badge/🔶-Changelog-blue" /></a> 
+<a href="https://ko-fi.com/O5O0FG195" target="_blank"><img src="https://img.shields.io/badge/%E2%98%95-Buy%20me%20a%20coffee-red" alt="Buy me a coffee"/></a>
+<img src="https://img.shields.io/github/actions/workflow/status/devzwf/pihole-dot-doh/release.yml" alt="GitHub Actions Workflow Status" />
+</p>
 
 Official pihole docker with both DoT (DNS over TLS), DoH (DNS over HTTPS)  and unbound clients. Don't browse the web securely and yet still send your DNS queries in plain text!
 
@@ -8,7 +14,7 @@ Official pihole docker with both DoT (DNS over TLS), DoH (DNS over HTTPS)  and u
 
 > [!CAUTION]
 >
-> ## !!! THE LATEST VERSION CONTAINS BREAKING CHANGES
+> ## !!! THE LATEST VERSION V6 CONTAINS BREAKING CHANGES VERSUS V5
 >
 > **Pi-hole v6 has been entirely redesigned from the ground up and contains many breaking changes.**
 >
@@ -30,8 +36,8 @@ Below is an docker compose example.
 ```
 services:
   pihole:
-    container_name: pihole_v6
-    image: devzwf/pihole-dot-doh:latest-v6
+    container_name: pihole
+    image: devzwf/pihole-dot-doh:latest
     ports:
       # DNS Ports
       - "53:53/tcp"
@@ -91,7 +97,7 @@ If no logs are collected you might need to enable "log-queries" in the "unbound.
 - Credits:
   - Pihole base image is the official [pihole/pihole:latest](https://hub.docker.com/r/pihole/pihole/tags?page=1&name=latest)
   - Cloudflared client was obtained from [official site](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation#linux)
-  - Stubby is a standard debian package (removed for now)
+  - Stubby is a standard debian package
   - doh and dot was based from https://github.com/testdasi/pihole-dot-doh
   - Joly0 for the unbound integration (https://github.com/Joly0)
   - update since other container was falling behind version
