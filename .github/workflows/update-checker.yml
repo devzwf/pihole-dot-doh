@@ -74,7 +74,7 @@ jobs:
 
       - name: Create Pull Request
         if: env.UPDATE_IMAGE == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: update-external-apps-${{ env.UNBOUND_LATEST_VERSION }}-${{ env.CLOUDFLARED_LATEST_VERSION }}
