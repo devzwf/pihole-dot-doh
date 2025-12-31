@@ -1,0 +1,47 @@
+################################################################
+# Global settings
+################################################################
+
+# Listen on 127.1.1.1 at port 5153
+listen_addresses = ['127.1.1.1:5153']
+
+# Force usage of Cloudflare only.
+# You can add 'cloudflare-ipv6' if you have IPv6 connectivity.
+##TODO: make this configurable
+server_names = ['cloudflare-secure-custom']
+
+################################################################
+# Recommended 'Good' Defaults
+################################################################
+
+# Requires resolvers to support DNSSEC (Cloudflare does)
+require_dnssec = true
+
+# Requires resolvers that do not log queries (Cloudflare claims this)
+require_nolog = true
+
+# Requires resolvers that do not intentionally block domains
+require_nofilter = true
+
+# Force communication over DoH (DNS over HTTPS) or DNSCrypt
+# Cloudflare supports both. This ensures encryption.
+force_tcp = false
+
+################################################################
+# Caching
+################################################################
+
+cache = true
+cache_size = 4096
+cache_min_ttl = 2400
+cache_max_ttl = 86400
+cache_neg_min_ttl = 60
+
+# Bootstrap resolvers: Used to download the initial resolvers list                             
+# Cloudflare (1.1.1.1) and Quad9 (9.9.9.9) are standard choices here.                          
+[static]                                                                                       
+  # Static definition for Cloudflare Security (1.1.1.2)                                        
+  # This ensures it works even if the public list download fails.                              
+  [static.cloudflare-secure-custom]
+  stamp = 'sdns://AgMAAAAAAAAABzEuMS4xLjIAG3NlY3VyaXR5LmNsb3VkZmxhcmUtZG5zLmNvbQovZG5zLXF1ZXJ5'
+
