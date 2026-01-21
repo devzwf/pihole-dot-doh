@@ -107,6 +107,7 @@ jobs:
       # 7. Build multi-arch if new upstream or push main
       ##########################
       - name: Build & push multi-arch
+        id: docker_build_push
         if: env.NEED_BUILD == 'true' || github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
@@ -121,4 +122,13 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPONAME }}:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPONAME }}:${{ env.FINAL_TAG }}
+      
+      - name: Slack Notification
+        if: steps.docker_build_push.outputs.digest != '' 
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_TITLE: "Docker Image Pushed"
+          SLACK_MESSAGE: "A new version of pihole-dot-doh has been pushed to Docker Hub."
+          SLACK_COLOR: good
  
