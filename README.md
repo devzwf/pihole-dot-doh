@@ -74,10 +74,10 @@ services:
 
 ### Unbound:
 
-Unbound has been integrated into the image. Unbound can be used as the only upstream dns server for pihole, while unbound itself has been pre-configured to use stubby and cloudflared as its upstream dns servers.
+Unbound has been integrated into the image. Unbound can be used as the only upstream dns server for pihole, while unbound itself has been pre-configured to use stubby and dnscrypt-proxy as its upstream dns servers.
 
 #### Migrate to Unbound:
-To use unbound instead of cloudflared and stubby just replace the "Pihole_DNS_" variable with "127.0.0.1#5335".
+To use unbound instead of dnscrypt-proxy and stubby just replace the "Pihole_DNS_" variable with "127.0.0.1#5335".
 
 If you want to change the upstream dns servers for unbound just edit the "forward-records.conf" file in your "/config" mount and comment-out (add a # infront of the "forward-addr") the line and remove the comment for any other dns server like quad9.
 
@@ -89,15 +89,16 @@ If no logs are collected you might need to enable "log-queries" in the "unbound.
 ### Notes:
 
 - Remember to set pihole env PIHOLE_DNS_ to use the DoH / DoT / Unbound IP below. If PIHOLE_DNS_ is NOT set, Pihole will use a non-encrypted service.
-  - DoH service (cloudflared) runs at 127.1.1.1#5153. Uses cloudflare (1.1.1.1 / 1.0.0.1) by default
+  - DoH service (dnscrypt-proxy) runs at 127.1.1.1#5153. Uses Cloudflare Security (1.1.1.2 ) by default
   - DoT service (stubby) runs at 127.2.2.2#5253. Uses google (8.8.8.8 / 8.8.4.4) by default (removed for now)
   - Unbound service run at 127.0.0.1#5335
-- In addition to the 2 official paths, you can also map container /config to expose configuration yml files for cloudflared (cloudflared.yml) and stubby (stubby.yml).
+- In addition to the 2 official paths, you can also map container /config to expose configuration files for dnscrypt-proxy (dnscrypt-proxy.toml) and stubby (stubby.yml).
   - Edit these files to add / remove services as you wish. The flexibility is yours.
 - Credits:
   - Pihole base image is the official [pihole/pihole:latest](https://hub.docker.com/r/pihole/pihole/tags?page=1&name=latest)
-  - Cloudflared client was obtained from [official site](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation#linux)
-  - Stubby is a standard debian package
+  - dnscrypt-proxy is a standard Alpine package (https://github.com/DNSCrypt/dnscrypt-proxy)
+  - Stubby is a standard Alpine edge package (https://github.com/getdnsapi/stubby)
+  - Unbound is a standard Alpine edge package (https://github.com/NLnetLabs/unbound)
   - doh and dot was based from https://github.com/testdasi/pihole-dot-doh
   - Joly0 for the unbound integration (https://github.com/Joly0)
   - update since other container was falling behind version
