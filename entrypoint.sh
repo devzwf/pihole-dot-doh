@@ -19,16 +19,20 @@ chmod 755 /temp/unbound.sh
 
 
 # Copy config file if not exists
-if [ ! -f /config/cloudflared.yml ]; then
-    cp -n /temp/cloudflared.yml /config/
+# dnscrypt-proxy
+if [ ! -f /config/dnscrypt-proxy.toml ]; then
+    cp -n /temp/dnscrypt-proxy.toml /config/
 fi
 
+# unbound
 if [ ! -f /config/unbound.conf ]; then
     cp /temp/unbound.conf /config/
 fi
 if [ ! -f /config/forward-records.conf ]; then
     cp -n /temp/forward-records.conf /config/
 fi
+
+#stubby
 if [ ! -f /config/stubby.yml ]; then
     cp -n /temp/stubby.yml /config/
 fi
@@ -37,9 +41,11 @@ fi
 echo "Starting Unbound..."
 /usr/sbin/unbound -d -p -c /config/unbound.conf &
 
-echo "Starting Cloudflared..."
-/usr/local/bin/cloudflared --config /config/cloudflared.yml &
+# start dnscrypt-proxy
+echo "Starting dnscrypt-proxy....."
+dnscrypt-proxy -config /config/dnscrypt-proxy.toml &
 
+# start stubby
 echo "Starting Stubby....."
 stubby -g -C /config/stubby.yml &
 

@@ -2,7 +2,7 @@ name: Check for Updates
 
 on:
   schedule:
-    # Run daily at midnight (adjust as needed)
+    # Run daily at 07:00 UTC
     - cron: '0 7 * * *'
     
   workflow_dispatch: # Allows manual trigger
@@ -12,7 +12,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    
       - name: Set up dependencies
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
@@ -23,14 +22,15 @@ jobs:
         uses: actions/checkout@v6
     
       ##########################
-      # 1. Fetch Cloudflared and Unbound
+      # 1. Fetch DNSCrypt-proxy and Unbound
       ##########################
-      - name: Fetch latest Cloudflared release
+      - name: Fetch latest DNSCrypt-proxy release
         run: |
-          LATEST=$(curl -s https://api.github.com/repos/cloudflare/cloudflared/releases/latest \
-            | jq -r '.tag_name' | sed 's/^v//')
-          echo "CLOUDFLARED_LATEST_VERSION=$LATEST" >> $GITHUB_ENV
-          echo "CLOUDFLARED_LATEST_VERSION=$LATEST"
+          # Fetches the latest release tag from the dnscrypt-proxy repo
+          LATEST=$(curl -s https://api.github.com/repos/DNSCrypt/dnscrypt-proxy/releases/latest \
+            | jq -r '.tag_name')
+          echo "DNSCRYPT_LATEST_VERSION=$LATEST" >> $GITHUB_ENV
+          echo "DNSCRYPT_LATEST_VERSION=$LATEST"
 
       - name: Get latest Unbound version
         id: get_version_unbound
@@ -52,53 +52,50 @@ jobs:
       - name: Check if need new Image
         run: |
           UPDATE_IMAGE=false
-          # Unbound
+          
+          # Unbound check
           CURRENT_UNBOUND=$(grep -Eo "ARG UNBOUND_VERSION=[0-9.]+" Dockerfile | cut -d= -f2)
           if [ "$CURRENT_UNBOUND" != "${{ env.UNBOUND_LATEST_VERSION }}" ]; then UPDATE_IMAGE=true; fi
           
-          # Cloudflared 
-          CURRENT_CLOUDFLARED=$(grep -Eo 'ARG CLOUDFLARED_VERSION=[0-9.]+' Dockerfile | cut -d= -f2)
-          if [ "$CURRENT_CLOUDFLARED" != "${{ env.CLOUDFLARED_LATEST_VERSION }}" ]; then UPDATE_IMAGE=true; fi
+          # DNSCrypt check (Look for ARG DNSCRYPT_VERSION in Dockerfile)
+          CURRENT_DNSCRYPT=$(grep -Eo 'ARG DNSCRYPT_VERSION=[0-9.]+' Dockerfile | cut -d= -f2)
+          if [ "$CURRENT_DNSCRYPT" != "${{ env.DNSCRYPT_LATEST_VERSION }}" ]; then UPDATE_IMAGE=true; fi
+          
           echo "UPDATE_IMAGE=$UPDATE_IMAGE" >> $GITHUB_ENV
           echo "UPDATE_IMAGE=$UPDATE_IMAGE"
 
-
       ##########################
-      # 3. Create PR if Unbound/Cloudflared changed (ne déclenche pas build)
+      # 3. Create PR if Unbound/DNSCrypt changed
       ##########################
       - name: Update Dockerfile
         if: env.UPDATE_IMAGE == 'true'
         run: |
           sed -i "s/^ARG UNBOUND_VERSION=.*/ARG UNBOUND_VERSION=${{ env.UNBOUND_LATEST_VERSION }}/" Dockerfile
-          sed -i "s/^ARG CLOUDFLARED_VERSION=.*/ARG CLOUDFLARED_VERSION=${{ env.CLOUDFLARED_LATEST_VERSION }}/" Dockerfile
+          sed -i "s/^ARG DNSCRYPT_VERSION=.*/ARG DNSCRYPT_VERSION=${{ env.DNSCRYPT_LATEST_VERSION }}/" Dockerfile
 
       - name: Create Pull Request
         if: env.UPDATE_IMAGE == 'true'
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: update-external-apps-${{ env.UNBOUND_LATEST_VERSION }}-${{ env.CLOUDFLARED_LATEST_VERSION }}
+          branch: update-deps-${{ env.UNBOUND_LATEST_VERSION }}-${{ env.DNSCRYPT_LATEST_VERSION }}
           base: "dev"
           delete-branch: true
           commit-message: |
-            chore: Update Unbound per-arch versions and Cloudflared
+            chore: Update Unbound and/or DNSCrypt-proxy
             Updates:
             - UNBOUND=${{ env.UNBOUND_LATEST_VERSION }}
-            - CLOUDFLARED=${{ env.CLOUDFLARED_LATEST_VERSION }}
+            - DNSCRYPT=${{ env.DNSCRYPT_LATEST_VERSION }}
           title: |
-            chore: Update Unbound per-arch and Cloudflared
-            UNBOUND [${{ env.UNBOUND_LATEST_VERSION }}], CLOUDFLARED [${{ env.CLOUDFLARED_LATEST_VERSION }}]
+            chore: Update Unbound and/or DNSCrypt-proxy
           body: |
             This PR updates the Dockerfile with the following versions:
 
-            **Unbound 
+            **Unbound**
             - Version : ${{ env.UNBOUND_LATEST_VERSION }}
 
-            **Cloudflared**
-            - Version: ${{ env.CLOUDFLARED_LATEST_VERSION }}
+            **DNSCrypt-proxy**
+            - Version: ${{ env.DNSCRYPT_LATEST_VERSION }}
 
-            This PR updates the Dockerfile with the latest Unbound versions and Cloudflared.
             The multi-arch Docker image will be rebuilt automatically when this PR is merged.
-
             Please verify this builds correctly on `dev` before merging.
-            

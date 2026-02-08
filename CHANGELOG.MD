@@ -1,6 +1,8 @@
 # Change Log
 
 All major changes to this project will be documented here.
+## 2025-12+31
+    - replace cloudfrared with dnscrypt-proxy due to https://developers.cloudflare.com/changelog/2025-11-11-cloudflared-proxy-dns/
 
 ## 2025-10.01
     - update the action and refactor the build
