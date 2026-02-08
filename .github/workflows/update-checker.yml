@@ -2,82 +2,75 @@ name: Check for Updates
 
 on:
   schedule:
-    - cron: '0 7 * * *'
+    - cron: '0 7 * * *' # Runs daily at midnight
   workflow_dispatch: 
 
 jobs:
   check-updates:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
 
     steps:
       - name: Set up dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: jq curl grep
-          version: 1.0
-          
+        run: sudo apt-get install -y jq curl grep
+
       - name: Checkout code
         uses: actions/checkout@v6
     
       ##########################
-      # 1. Fetch DNSCrypt (Alpine) and Unbound
+      # 1. Fetch Versions via Alpine API
       ##########################
       - name: Fetch latest DNSCrypt-proxy (Alpine Edge)
         run: |
-          # Queries the Alpine Package Index for the 'edge' branch version
-          # We use 'edge' because it contains the most recent updates
-          LATEST=$(curl -s "https://pkgs.alpinelinux.org/package/edge/community/x86_64/dnscrypt-proxy" \
-            | grep -oP '(?<=<span class="version">).*?(?=</span>)' | head -n 1)
-          
-          if [ -z "$LATEST" ]; then
-            echo "Failed to fetch version from Alpine Index" >&2
-            exit 1
-          fi
+          LATEST=$(curl -s "https://pkgs.alpinelinux.org/cgi/jrpc.cgi?qt=p&n=dnscrypt-proxy&r=edge&a=x86_64" \
+            | jq -r '.results[0].version')
+          if [ "$LATEST" = "null" ] || [ -z "$LATEST" ]; then exit 1; fi
           echo "DNSCRYPT_LATEST_VERSION=$LATEST" >> $GITHUB_ENV
-          echo "DNSCRYPT_LATEST_VERSION=$LATEST"
 
-      - name: Get latest Unbound version
+      - name: Fetch latest Unbound (Alpine Edge)
         run: |
-          URL="https://nlnetlabs.nl/downloads/unbound/"
-          CONTENT=$(curl -sL $URL)
-          VERSIONS=$(echo "$CONTENT" | sed -n 's/.*unbound-\([0-9.]\+\)\.tar\.gz.*/\1/p')
-          LATEST_VERSION=$(echo "$VERSIONS" | sort -V | tail -n 1)
-          echo "UNBOUND_LATEST_VERSION=$LATEST_VERSION" >> $GITHUB_ENV 
-          echo "UNBOUND_LATEST_VERSION=$LATEST_VERSION"  
+          LATEST=$(curl -s "https://pkgs.alpinelinux.org/cgi/jrpc.cgi?qt=p&n=unbound&r=edge&a=x86_64" \
+            | jq -r '.results[0].version')
+          if [ "$LATEST" = "null" ] || [ -z "$LATEST" ]; then exit 1; fi
+          echo "UNBOUND_LATEST_VERSION=$LATEST" >> $GITHUB_ENV
 
       ##########################
-      # 2. Check and Update
+      # 2. Compare and Update Dockerfile
       ##########################
       - name: Check if need new Image
+        id: check
         run: |
           UPDATE_IMAGE=false
+          CURRENT_UNBOUND=$(grep -Eo "ARG UNBOUND_VERSION=[0-9.a-z-]+" Dockerfile | cut -d= -f2)
+          CURRENT_DNSCRYPT=$(grep -Eo "ARG DNSCRYPT_VERSION=[0-9.a-z-]+" Dockerfile | cut -d= -f2)
           
-          # Unbound check
-          CURRENT_UNBOUND=$(grep -Eo "ARG UNBOUND_VERSION=[0-9.]+" Dockerfile | cut -d= -f2)
           if [ "$CURRENT_UNBOUND" != "${{ env.UNBOUND_LATEST_VERSION }}" ]; then UPDATE_IMAGE=true; fi
-          
-          # DNSCrypt check (Matches Alpine format like 2.1.15-r1)
-          CURRENT_DNSCRYPT=$(grep -Eo 'ARG DNSCRYPT_VERSION=[0-9.a-z-]+' Dockerfile | cut -d= -f2)
           if [ "$CURRENT_DNSCRYPT" != "${{ env.DNSCRYPT_LATEST_VERSION }}" ]; then UPDATE_IMAGE=true; fi
           
-          echo "UPDATE_IMAGE=$UPDATE_IMAGE" >> $GITHUB_ENV
+          echo "update_required=$UPDATE_IMAGE" >> $GITHUB_OUTPUT
 
       - name: Update Dockerfile
-        if: env.UPDATE_IMAGE == 'true'
+        if: steps.check.outputs.update_required == 'true'
         run: |
           sed -i "s/^ARG UNBOUND_VERSION=.*/ARG UNBOUND_VERSION=${{ env.UNBOUND_LATEST_VERSION }}/" Dockerfile
           sed -i "s/^ARG DNSCRYPT_VERSION=.*/ARG DNSCRYPT_VERSION=${{ env.DNSCRYPT_LATEST_VERSION }}/" Dockerfile
 
+      ##########################
+      # 3. Create Pull Request
+      ##########################
       - name: Create Pull Request
-        if: env.UPDATE_IMAGE == 'true'
+        if: steps.check.outputs.update_required == 'true'
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: update-alpine-deps
+          branch: auto-update-alpine-packages
           base: "dev"
+          delete-branch: true
           commit-message: "chore: bump Unbound to ${{ env.UNBOUND_LATEST_VERSION }} and DNSCrypt to ${{ env.DNSCRYPT_LATEST_VERSION }}"
-          title: "chore: Update Alpine packages (Unbound & DNSCrypt)"
+          title: "chore: Update DNS Dependencies (Alpine Edge)"
           body: |
-            Automatic update of dependencies from Alpine Edge:
+            This PR updates the Alpine Edge package versions:
             - **Unbound**: `${{ env.UNBOUND_LATEST_VERSION }}`
             - **DNSCrypt-proxy**: `${{ env.DNSCRYPT_LATEST_VERSION }}`
