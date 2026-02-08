@@ -2,10 +2,8 @@ name: Check for Updates
 
 on:
   schedule:
-    # Run daily at 07:00 UTC
     - cron: '0 7 * * *'
-    
-  workflow_dispatch: # Allows manual trigger
+  workflow_dispatch: 
 
 jobs:
   check-updates:
@@ -15,39 +13,40 @@ jobs:
       - name: Set up dependencies
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: jq curl grep tar xz-utils
+          packages: jq curl grep
           version: 1.0
           
       - name: Checkout code
         uses: actions/checkout@v6
     
       ##########################
-      # 1. Fetch DNSCrypt-proxy and Unbound
+      # 1. Fetch DNSCrypt (Alpine) and Unbound
       ##########################
-      - name: Fetch latest DNSCrypt-proxy release
+      - name: Fetch latest DNSCrypt-proxy (Alpine Edge)
         run: |
-          # Fetches the latest release tag from the dnscrypt-proxy repo
-          LATEST=$(curl -s https://api.github.com/repos/DNSCrypt/dnscrypt-proxy/releases/latest \
-            | jq -r '.tag_name')
+          # Queries the Alpine Package Index for the 'edge' branch version
+          # We use 'edge' because it contains the most recent updates
+          LATEST=$(curl -s "https://pkgs.alpinelinux.org/package/edge/community/x86_64/dnscrypt-proxy" \
+            | grep -oP '(?<=<span class="version">).*?(?=</span>)' | head -n 1)
+          
+          if [ -z "$LATEST" ]; then
+            echo "Failed to fetch version from Alpine Index" >&2
+            exit 1
+          fi
           echo "DNSCRYPT_LATEST_VERSION=$LATEST" >> $GITHUB_ENV
           echo "DNSCRYPT_LATEST_VERSION=$LATEST"
 
       - name: Get latest Unbound version
-        id: get_version_unbound
         run: |
           URL="https://nlnetlabs.nl/downloads/unbound/"
           CONTENT=$(curl -sL $URL)
           VERSIONS=$(echo "$CONTENT" | sed -n 's/.*unbound-\([0-9.]\+\)\.tar\.gz.*/\1/p')
           LATEST_VERSION=$(echo "$VERSIONS" | sort -V | tail -n 1)
-          if [ -z "$LATEST_VERSION" ]; then
-            echo "Could not find latest Unbound version" >&2
-            exit 1
-          fi
           echo "UNBOUND_LATEST_VERSION=$LATEST_VERSION" >> $GITHUB_ENV 
           echo "UNBOUND_LATEST_VERSION=$LATEST_VERSION"  
 
       ##########################
-      # 2. Check if a PR is required
+      # 2. Check and Update
       ##########################
       - name: Check if need new Image
         run: |
@@ -57,16 +56,12 @@ jobs:
           CURRENT_UNBOUND=$(grep -Eo "ARG UNBOUND_VERSION=[0-9.]+" Dockerfile | cut -d= -f2)
           if [ "$CURRENT_UNBOUND" != "${{ env.UNBOUND_LATEST_VERSION }}" ]; then UPDATE_IMAGE=true; fi
           
-          # DNSCrypt check (Look for ARG DNSCRYPT_VERSION in Dockerfile)
-          CURRENT_DNSCRYPT=$(grep -Eo 'ARG DNSCRYPT_VERSION=[0-9.]+' Dockerfile | cut -d= -f2)
+          # DNSCrypt check (Matches Alpine format like 2.1.15-r1)
+          CURRENT_DNSCRYPT=$(grep -Eo 'ARG DNSCRYPT_VERSION=[0-9.a-z-]+' Dockerfile | cut -d= -f2)
           if [ "$CURRENT_DNSCRYPT" != "${{ env.DNSCRYPT_LATEST_VERSION }}" ]; then UPDATE_IMAGE=true; fi
           
           echo "UPDATE_IMAGE=$UPDATE_IMAGE" >> $GITHUB_ENV
-          echo "UPDATE_IMAGE=$UPDATE_IMAGE"
 
-      ##########################
-      # 3. Create PR if Unbound/DNSCrypt changed
-      ##########################
       - name: Update Dockerfile
         if: env.UPDATE_IMAGE == 'true'
         run: |
@@ -78,24 +73,11 @@ jobs:
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: update-deps-${{ env.UNBOUND_LATEST_VERSION }}-${{ env.DNSCRYPT_LATEST_VERSION }}
+          branch: update-alpine-deps
           base: "dev"
-          delete-branch: true
-          commit-message: |
-            chore: Update Unbound and/or DNSCrypt-proxy
-            Updates:
-            - UNBOUND=${{ env.UNBOUND_LATEST_VERSION }}
-            - DNSCRYPT=${{ env.DNSCRYPT_LATEST_VERSION }}
-          title: |
-            chore: Update Unbound and/or DNSCrypt-proxy
+          commit-message: "chore: bump Unbound to ${{ env.UNBOUND_LATEST_VERSION }} and DNSCrypt to ${{ env.DNSCRYPT_LATEST_VERSION }}"
+          title: "chore: Update Alpine packages (Unbound & DNSCrypt)"
           body: |
-            This PR updates the Dockerfile with the following versions:
-
-            **Unbound**
-            - Version : ${{ env.UNBOUND_LATEST_VERSION }}
-
-            **DNSCrypt-proxy**
-            - Version: ${{ env.DNSCRYPT_LATEST_VERSION }}
-
-            The multi-arch Docker image will be rebuilt automatically when this PR is merged.
-            Please verify this builds correctly on `dev` before merging.
+            Automatic update of dependencies from Alpine Edge:
+            - **Unbound**: `${{ env.UNBOUND_LATEST_VERSION }}`
+            - **DNSCrypt-proxy**: `${{ env.DNSCRYPT_LATEST_VERSION }}`
