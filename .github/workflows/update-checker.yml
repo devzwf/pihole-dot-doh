@@ -2,103 +2,85 @@ name: Check for Updates
 
 on:
   schedule:
-    # Run daily at midnight (adjust as needed)
     - cron: '0 7 * * *'
-    
-  workflow_dispatch: # Allows manual trigger
+  workflow_dispatch: 
 
 jobs:
   check-updates:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
 
     steps:
-    
-      - name: Set up dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: jq curl grep tar xz-utils
-          version: 1.0
-          
       - name: Checkout code
         uses: actions/checkout@v6
     
       ##########################
-      # 1. Fetch Cloudflared and Unbound
+      # 1. Fetch Versions via APK (Most Reliable)
       ##########################
-      - name: Fetch latest Cloudflared release
+      - name: Fetch latest DNSCrypt-proxy (Alpine Edge)
         run: |
-          LATEST=$(curl -s https://api.github.com/repos/cloudflare/cloudflared/releases/latest \
-            | jq -r '.tag_name' | sed 's/^v//')
-          echo "CLOUDFLARED_LATEST_VERSION=$LATEST" >> $GITHUB_ENV
-          echo "CLOUDFLARED_LATEST_VERSION=$LATEST"
-
-      - name: Get latest Unbound version
-        id: get_version_unbound
-        run: |
-          URL="https://nlnetlabs.nl/downloads/unbound/"
-          CONTENT=$(curl -sL $URL)
-          VERSIONS=$(echo "$CONTENT" | sed -n 's/.*unbound-\([0-9.]\+\)\.tar\.gz.*/\1/p')
-          LATEST_VERSION=$(echo "$VERSIONS" | sort -V | tail -n 1)
-          if [ -z "$LATEST_VERSION" ]; then
-            echo "Could not find latest Unbound version" >&2
+          # Run apk search inside an actual Alpine Edge container
+          LATEST=$(docker run --rm alpine:edge sh -c "apk update > /dev/null && apk search dnscrypt-proxy" | grep -oE 'dnscrypt-proxy-[0-9.a-z-]+' | sed 's/dnscrypt-proxy-//' | head -n 1)
+          
+          if [ -z "$LATEST" ]; then
+            echo "Error: Could not find dnscrypt-proxy version"
             exit 1
           fi
-          echo "UNBOUND_LATEST_VERSION=$LATEST_VERSION" >> $GITHUB_ENV 
-          echo "UNBOUND_LATEST_VERSION=$LATEST_VERSION"  
+          echo "DNSCRYPT_LATEST_VERSION=$LATEST" >> $GITHUB_ENV
+          echo "Fetched DNSCrypt: $LATEST"
+
+      - name: Fetch latest Unbound (Alpine Edge)
+        run: |
+          # Run apk search inside an actual Alpine Edge container
+          LATEST=$(docker run --rm alpine:edge sh -c "apk update > /dev/null && apk search unbound" | grep -oE 'unbound-[0-9.a-z-]+' | sed 's/unbound-//' | head -n 1)
+          
+          if [ -z "$LATEST" ]; then
+            echo "Error: Could not find unbound version"
+            exit 1
+          fi
+          echo "UNBOUND_LATEST_VERSION=$LATEST" >> $GITHUB_ENV
+          echo "Fetched Unbound: $LATEST"
 
       ##########################
-      # 2. Check if a PR is required
+      # 2. Compare and Update Dockerfile
       ##########################
-      - name: Check if need new Image
+      - name: Check if update is required
+        id: check
         run: |
           UPDATE_IMAGE=false
-          # Unbound
-          CURRENT_UNBOUND=$(grep -Eo "ARG UNBOUND_VERSION=[0-9.]+" Dockerfile | cut -d= -f2)
-          if [ "$CURRENT_UNBOUND" != "${{ env.UNBOUND_LATEST_VERSION }}" ]; then UPDATE_IMAGE=true; fi
           
-          # Cloudflared 
-          CURRENT_CLOUDFLARED=$(grep -Eo 'ARG CLOUDFLARED_VERSION=[0-9.]+' Dockerfile | cut -d= -f2)
-          if [ "$CURRENT_CLOUDFLARED" != "${{ env.CLOUDFLARED_LATEST_VERSION }}" ]; then UPDATE_IMAGE=true; fi
-          echo "UPDATE_IMAGE=$UPDATE_IMAGE" >> $GITHUB_ENV
-          echo "UPDATE_IMAGE=$UPDATE_IMAGE"
+          # Extract current versions from Dockerfile
+          CURRENT_UNBOUND=$(grep -Eo "ARG UNBOUND_VERSION=[0-9.a-z-]+" Dockerfile | cut -d= -f2)
+          CURRENT_DNSCRYPT=$(grep -Eo "ARG DNSCRYPT_VERSION=[0-9.a-z-]+" Dockerfile | cut -d= -f2)
+          
+          if [ "$CURRENT_UNBOUND" != "${{ env.UNBOUND_LATEST_VERSION }}" ]; then UPDATE_IMAGE=true; fi
+          if [ "$CURRENT_DNSCRYPT" != "${{ env.DNSCRYPT_LATEST_VERSION }}" ]; then UPDATE_IMAGE=true; fi
+          
+          echo "update_required=$UPDATE_IMAGE" >> $GITHUB_OUTPUT
 
-
-      ##########################
-      # 3. Create PR if Unbound/Cloudflared changed (ne déclenche pas build)
-      ##########################
       - name: Update Dockerfile
-        if: env.UPDATE_IMAGE == 'true'
+        if: steps.check.outputs.update_required == 'true'
         run: |
           sed -i "s/^ARG UNBOUND_VERSION=.*/ARG UNBOUND_VERSION=${{ env.UNBOUND_LATEST_VERSION }}/" Dockerfile
-          sed -i "s/^ARG CLOUDFLARED_VERSION=.*/ARG CLOUDFLARED_VERSION=${{ env.CLOUDFLARED_LATEST_VERSION }}/" Dockerfile
+          sed -i "s/^ARG DNSCRYPT_VERSION=.*/ARG DNSCRYPT_VERSION=${{ env.DNSCRYPT_LATEST_VERSION }}/" Dockerfile
 
+      ##########################
+      # 3. Create Pull Request
+      ##########################
       - name: Create Pull Request
-        if: env.UPDATE_IMAGE == 'true'
+        if: steps.check.outputs.update_required == 'true'
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: update-external-apps-${{ env.UNBOUND_LATEST_VERSION }}-${{ env.CLOUDFLARED_LATEST_VERSION }}
+          branch: auto-update-alpine-deps
           base: "dev"
           delete-branch: true
-          commit-message: |
-            chore: Update Unbound per-arch versions and Cloudflared
-            Updates:
-            - UNBOUND=${{ env.UNBOUND_LATEST_VERSION }}
-            - CLOUDFLARED=${{ env.CLOUDFLARED_LATEST_VERSION }}
-          title: |
-            chore: Update Unbound per-arch and Cloudflared
-            UNBOUND [${{ env.UNBOUND_LATEST_VERSION }}], CLOUDFLARED [${{ env.CLOUDFLARED_LATEST_VERSION }}]
+          commit-message: "chore: bump Unbound to ${{ env.UNBOUND_LATEST_VERSION }} and DNSCrypt to ${{ env.DNSCRYPT_LATEST_VERSION }}"
+          title: "chore: Update Alpine Edge Dependencies"
           body: |
-            This PR updates the Dockerfile with the following versions:
-
-            **Unbound 
-            - Version : ${{ env.UNBOUND_LATEST_VERSION }}
-
-            **Cloudflared**
-            - Version: ${{ env.CLOUDFLARED_LATEST_VERSION }}
-
-            This PR updates the Dockerfile with the latest Unbound versions and Cloudflared.
-            The multi-arch Docker image will be rebuilt automatically when this PR is merged.
-
-            Please verify this builds correctly on `dev` before merging.
+            Automatic version bump using the Alpine Edge package manager.
             
+            - **Unbound**: `${{ env.UNBOUND_LATEST_VERSION }}`
+            - **DNSCrypt-proxy**: `${{ env.DNSCRYPT_LATEST_VERSION }}`
