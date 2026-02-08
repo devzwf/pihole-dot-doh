@@ -13,40 +13,35 @@ jobs:
       pull-requests: write
 
     steps:
-      - name: Set up dependencies
-        run: sudo apt-get update && sudo apt-get install -y jq curl grep
-
       - name: Checkout code
         uses: actions/checkout@v6
     
       ##########################
-      # 1. Fetch Versions via Alpine Search API
+      # 1. Fetch Versions via APK (Most Reliable)
       ##########################
       - name: Fetch latest DNSCrypt-proxy (Alpine Edge)
         run: |
-          # Use the search API which is more reliable than the RPC endpoint
-          URL="https://pkgs.alpinelinux.org/packages?name=dnscrypt-proxy&branch=edge&repo=community&arch=x86_64"
-          RESPONSE=$(curl -s -H "Accept: application/json" "$URL")
-          LATEST=$(echo "$RESPONSE" | jq -r '.[0].version' 2>/dev/null || echo "")
+          # Run apk search inside an actual Alpine Edge container
+          LATEST=$(docker run --rm alpine:edge sh -c "apk update > /dev/null && apk search dnscrypt-proxy" | grep -oE 'dnscrypt-proxy-[0-9.a-z-]+' | sed 's/dnscrypt-proxy-//' | head -n 1)
           
-          if [ -z "$LATEST" ] || [ "$LATEST" = "null" ]; then
-            echo "Error: Could not parse DNSCrypt version. API Response: $RESPONSE"
+          if [ -z "$LATEST" ]; then
+            echo "Error: Could not find dnscrypt-proxy version"
             exit 1
           fi
           echo "DNSCRYPT_LATEST_VERSION=$LATEST" >> $GITHUB_ENV
+          echo "Fetched DNSCrypt: $LATEST"
 
       - name: Fetch latest Unbound (Alpine Edge)
         run: |
-          # Querying Unbound from the edge main repository
-          URL="https://pkgs.alpinelinux.org/packages?name=unbound&branch=edge&repo=main&arch=x86_64"
-          RESPONSE=$(curl -s -H "Accept: application/json" "$URL")
-          LATEST=$(echo "$RESPONSE" | jq -r '.[0].version' 2>/dev/null || echo "")
+          # Run apk search inside an actual Alpine Edge container
+          LATEST=$(docker run --rm alpine:edge sh -c "apk update > /dev/null && apk search unbound" | grep -oE 'unbound-[0-9.a-z-]+' | sed 's/unbound-//' | head -n 1)
           
-          if [ -z "$LATEST" ] || [ "$LATEST" = "null" ]; then
-            echo "Error: Could not parse Unbound version. API Response: $RESPONSE"
+          if [ -z "$LATEST" ]; then
+            echo "Error: Could not find unbound version"
             exit 1
           fi
           echo "UNBOUND_LATEST_VERSION=$LATEST" >> $GITHUB_ENV
+          echo "Fetched Unbound: $LATEST"
 
       ##########################
       # 2. Compare and Update Dockerfile
@@ -55,7 +50,8 @@ jobs:
         id: check
         run: |
           UPDATE_IMAGE=false
-          # Extract versions from Dockerfile - supports alpha/numeric and release suffixes like -r1
+          
+          # Extract current versions from Dockerfile
           CURRENT_UNBOUND=$(grep -Eo "ARG UNBOUND_VERSION=[0-9.a-z-]+" Dockerfile | cut -d= -f2)
           CURRENT_DNSCRYPT=$(grep -Eo "ARG DNSCRYPT_VERSION=[0-9.a-z-]+" Dockerfile | cut -d= -f2)
           
@@ -84,8 +80,7 @@ jobs:
           commit-message: "chore: bump Unbound to ${{ env.UNBOUND_LATEST_VERSION }} and DNSCrypt to ${{ env.DNSCRYPT_LATEST_VERSION }}"
           title: "chore: Update Alpine Edge Dependencies"
           body: |
-            Automatic version bump for Alpine Edge packages:
+            Automatic version bump using the Alpine Edge package manager.
+            
             - **Unbound**: `${{ env.UNBOUND_LATEST_VERSION }}`
             - **DNSCrypt-proxy**: `${{ env.DNSCRYPT_LATEST_VERSION }}`
-            
-            This ensures the app uses the latest security patches available in the rolling branch.
