@@ -33,15 +33,18 @@ jobs:
 
       - name: Fetch latest Unbound (Alpine Edge)
         run: |
-          # Run apk search inside an actual Alpine Edge container
-          LATEST=$(docker run --rm alpine:edge sh -c "apk update > /dev/null && apk search unbound" | grep -oE 'unbound-[0-9.a-z-]+' | sed 's/unbound-//' | head -n 1)
+          # Use -x to match the exact package name only
+          # This prevents matching things like 'unbound-libs' or 'unbound-daemon'
+          LATEST=$(docker run --rm alpine:edge sh -c "apk update > /dev/null && apk search -x unbound" | grep -oE 'unbound-[0-9.a-z-]+' | sed 's/unbound-//' | head -n 1)
           
-          if [ -z "$LATEST" ]; then
-            echo "Error: Could not find unbound version"
-            exit 1
+          if [ -z "$LATEST" ] || [[ "$LATEST" == 0.1.0* ]]; then
+            echo "Error: Fetched suspicious version ($LATEST). Double-checking..."
+            # Fallback check
+            LATEST=$(docker run --rm alpine:edge sh -c "apk update > /dev/null && apk info unbound" | grep "unbound-" | head -n 1 | cut -d' ' -f1 | sed 's/unbound-//')
           fi
+
           echo "UNBOUND_LATEST_VERSION=$LATEST" >> $GITHUB_ENV
-          echo "Fetched Unbound: $LATEST"
+          echo "Verified Unbound: $LATEST"
 
       ##########################
       # 2. Compare and Update Dockerfile
