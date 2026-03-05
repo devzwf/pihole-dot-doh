@@ -23,7 +23,7 @@ jobs:
 
       # This builds the image to verify it works, but discards the output
       - name: Build (Test)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: |
