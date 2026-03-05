@@ -109,7 +109,7 @@ jobs:
       - name: Build & push multi-arch
         id: docker_build_push
         if: env.NEED_BUILD == 'true' || github.event_name == 'push'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: |
