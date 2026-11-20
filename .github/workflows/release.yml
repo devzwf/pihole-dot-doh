@@ -31,16 +31,19 @@ jobs:
       # 1. Fetch latest upstream tag
       ##########################
       - name: Fetch latest release tag
-        uses: pozetroninc/github-action-get-latest-release@v0.8.0
         id: latest-tag
-        with:
-          repository: pi-hole/docker-pi-hole
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(gh api repos/pi-hole/docker-pi-hole/releases/latest --jq .tag_name)
+          [ -n "$TAG" ] || { echo "::error::Tag upstream vide"; exit 1; }
+          echo "release=$TAG" >> "$GITHUB_OUTPUT"
       
       
       - name: Set APP_VERSION      
         run: |
           echo "APP_VERSION=${{ steps.latest-tag.outputs.release }}" >> $GITHUB_ENV
-          echo "Latest upstream tag: ${{ env.APP_VERSION }}"
+          echo "Latest upstream tag: ${{ steps.latest-tag.outputs.release }}"
       
        ##########################
       # 2. Determine if NEED_BUILD
